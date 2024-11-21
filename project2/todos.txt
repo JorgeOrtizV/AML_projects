@@ -1,0 +1,8 @@
+* TODOs:
+
+- Implement filter for heartbeats (mean, var)
+- Diego: Try filtered heartbears old transformer
+	Increasing encoder layers 3/4
+- Encoder + MLP
+- 1DConv
+- Jorge : Transformer for heartbeats
