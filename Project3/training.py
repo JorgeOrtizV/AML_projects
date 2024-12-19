@@ -162,6 +162,16 @@ if __name__ == "__main__":
         criterion = FocalLoss(alpha=alpha, gamma=gamma)
 
         model.to(device)
+
+        current_params = {
+                'lr' : lr,
+                'batch_size' : batch_size,
+                'gamma' : gamma,
+                'alpha': alpha,
+                'epochs' : epochs
+            }
+        print("Training using : {}".format(current_params))
+        
         for epoch in range(epochs):
             model.train()
             epoch_loss = 0.0
