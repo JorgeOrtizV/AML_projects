@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision.transforms.functional import resize
 import itertools
 from tqdm import tqdm
@@ -36,6 +36,7 @@ class UNet2(nn.Module):
         # Bottleneck with deeper processing
         self.bottleneck1 = conv_block(512, 1024)
         self.bottleneck2 = conv_block(1024, 1024)
+        self.bottleneck3 = conv_block(1024, 1024)
 
         # Decoder layers
         self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
@@ -62,6 +63,7 @@ class UNet2(nn.Module):
         # Bottleneck
         b = self.bottleneck1(self.pool(e4))
         b = self.bottleneck2(b)
+        b = self.bottleneck3(b)
 
         # Decoder
         d4 = self.upconv4(b)
@@ -197,6 +199,7 @@ class UNet(nn.Module):
 
         self.bottleneck = conv_block(512, 1024)
         self.bottleneck2 = conv_block(1024, 1024)
+        self.bottleneck3 = conv_block(1024, 1024)
 
         self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
         self.decoder4 = conv_block(1024, 512)
@@ -219,9 +222,10 @@ class UNet(nn.Module):
         # Bottleneck
         b = self.bottleneck(self.pool(e4))
         b2 = self.bottleneck2(b)
+        b3 = self.bottleneck3(b2)
 
         # Decoder
-        d4 = self.upconv4(b2)
+        d4 = self.upconv4(b3)
         d4 = torch.cat((e4, d4), dim=1)
         d4 = self.decoder4(d4)
 
@@ -300,6 +304,8 @@ if __name__ == "__main__":
         train_expert = pickle.load(f)
     with open('data/train_amateur.pkl', 'rb') as f:
         train_amateur = pickle.load(f)
+    with open('data/amateur.pkl', 'rb') as f:
+        amateur = pickle.load(f)
     with open('data/val_expert.pkl', 'rb') as f:
         val_expert = pickle.load(f)
     with open('data/val_amateur.pkl', 'rb') as f:
@@ -307,11 +313,24 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_expert_dataset = MitralDataset(train_expert)
-    val_expert_dataset = MitralDataset(val_expert)
+    amateur_dataset = MitralDataset(amateur)
+    professional_train_dataset = MitralDataset(train_expert)
+    professional_val_dataset = MitralDataset(val_expert)
 
-    train_loader = DataLoader(train_expert_dataset, batch_size=4, shuffle=True)
-    val_loader = DataLoader(val_expert_dataset, batch_size=4, shuffle=False)
+    train_dataset = amateur_dataset + professional_train_dataset
+    val_dataset = professional_val_dataset
+
+    # define weights
+    amateur_weight = 1.0
+    professional_weight = 5.0
+    weights = (
+        [amateur_weight] * len(amateur_dataset) +
+        [professional_weight] * len(professional_train_dataset)
+    )
+
+    weighted_sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+    train_loader = DataLoader(train_dataset, sampler=weighted_sampler, batch_size=4, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)    
     
     model = UNet()
     optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
