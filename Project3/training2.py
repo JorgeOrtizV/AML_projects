@@ -11,51 +11,78 @@ from tqdm import tqdm
 class UNet2(nn.Module):
     def __init__(self, c_in=1, c_out=1):
         super(UNet2, self).__init__()
-        self.inc = DoubleConv(c_in, 64)
-        self.down1 = Down(64, 128)
-        self.sa1 = SelfAttention(128, 14)
-        self.down2 = Down(128, 256)
-        self.sa2 = SelfAttention(256, 7)
-        self.down3 = Down(256, 256)
-        self.sa3 = SelfAttention(256, 4)
-        
-        self.bot1 = DoubleConv(256, 512)
-        self.bot2 = DoubleConv(512, 512)
-        self.bot3 = DoubleConv(512, 256)
-        
-        self.up1 = Up(512, 128)
-        self.sa4 = SelfAttention(128, 7)
-        self.up2 = Up(256, 64)
-        self.sa5 = SelfAttention(64, 14)
-        self.up3 = Up(128, 64)
-        self.sa6 = SelfAttention(64,28)
-        self.outc = nn.Conv2d(64, c_out, kernel_size=1)
+        def conv_block(in_ch, out_ch):
+            return nn.Sequential(
+                nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
+                nn.BatchNorm2d(out_ch),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
+                nn.BatchNorm2d(out_ch),
+                nn.ReLU(inplace=True)
+            )
+
+        # Encoder layers
+        self.encoder1 = conv_block(c_in, 64)
+        self.encoder2 = conv_block(64, 128)
+        self.encoder3 = conv_block(128, 256)
+        self.encoder4 = conv_block(256, 512)
+
+        # Self-Attention after deeper encoder layers
+        self.sa3 = SelfAttention(256, 8)  # Adds attention at encoder3
+        self.sa4 = SelfAttention(512, 4)  # Adds attention at encoder4
+
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # Bottleneck with deeper processing
+        self.bottleneck1 = conv_block(512, 1024)
+        self.bottleneck2 = conv_block(1024, 1024)
+
+        # Decoder layers
+        self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+        self.decoder4 = conv_block(1024, 512)
+        self.upconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.decoder3 = conv_block(512, 256)
+        self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.decoder2 = conv_block(256, 128)
+        self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.decoder1 = conv_block(128, 64)
+
+        # Final output layer
+        self.final_conv = nn.Conv2d(64, c_out, kernel_size=1)
 
     def forward(self, x):
         # Encoder
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x2 = self.sa1(x2)
-        x3 = self.down2(x2)
-        x3 = self.sa2(x3)
-        x4 = self.down3(x3)
-        x4 = self.sa3(x4)
-        
+        e1 = self.encoder1(x)
+        e2 = self.encoder2(self.pool(e1))
+        e3 = self.encoder3(self.pool(e2))
+        e3 = self.sa3(e3)  # Apply self-attention
+        e4 = self.encoder4(self.pool(e3))
+        e4 = self.sa4(e4)  # Apply self-attention
+
         # Bottleneck
-        x4 = self.bot1(x4)
-        x4 = self.bot2(x4)
-        x4 = self.bot3(x4)
-        
+        b = self.bottleneck1(self.pool(e4))
+        b = self.bottleneck2(b)
+
         # Decoder
-        #print(x4.size())
-        #print(x3.size())
-        x = self.up1(x4, x3)
-        x = self.sa4(x)
-        x = self.up2(x, x2)
-        x = self.sa5(x)
-        x = self.up3(x, x1)
-        x = self.sa6(x)
-        return self.outc(x)
+        d4 = self.upconv4(b)
+        d4 = torch.cat((e4, d4), dim=1)
+        d4 = self.decoder4(d4)
+
+        d3 = self.upconv3(d4)
+        d3 = torch.cat((e3, d3), dim=1)
+        d3 = self.decoder3(d3)
+
+        d2 = self.upconv2(d3)
+        d2 = torch.cat((e2, d2), dim=1)
+        d2 = self.decoder2(d2)
+
+        d1 = self.upconv1(d2)
+        d1 = torch.cat((e1, d1), dim=1)
+        d1 = self.decoder1(d1)
+
+        # Final output
+        out = self.final_conv(d1)
+        return out
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, mid_channels=None, residual=False):
@@ -154,8 +181,10 @@ class UNet(nn.Module):
         def conv_block(in_ch, out_ch):
             return nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
+                nn.BatchNorm2D(out_ch,)
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
+                nn.BatchNorm2d(out_ch),
                 nn.ReLU(inplace=True)
             )
 
