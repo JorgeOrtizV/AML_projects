@@ -181,10 +181,10 @@ class UNet(nn.Module):
         def conv_block(in_ch, out_ch):
             return nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
-                nn.BatchNorm2D(out_ch),
+                nn.BatchNorm2d(out_ch),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
-                nn.BatchNorm2D(out_ch),
+                nn.BatchNorm2d(out_ch),
                 nn.ReLU(inplace=True)
             )
 
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_expert_dataset, batch_size=4, shuffle=True)
     val_loader = DataLoader(val_expert_dataset, batch_size=4, shuffle=False)
     
-    model = UNet2()
+    model = UNet()
     optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
     criterion = FocalLoss(alpha=0.25, gamma=2.0)
 
