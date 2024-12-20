@@ -57,7 +57,7 @@ class UNet2(nn.Module):
         e3 = self.encoder3(self.pool(e2))
         e3 = self.sa3(e3)  # Apply self-attention
         e4 = self.encoder4(self.pool(e3))
-        #e4 = self.sa4(e4)  # Apply self-attention
+        e4 = self.sa4(e4)  # Apply self-attention
 
         # Bottleneck
         b = self.bottleneck1(self.pool(e4))
@@ -196,6 +196,7 @@ class UNet(nn.Module):
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.bottleneck = conv_block(512, 1024)
+        self.bottleneck2 = conv_block(1024, 1024)
 
         self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
         self.decoder4 = conv_block(1024, 512)
@@ -217,9 +218,10 @@ class UNet(nn.Module):
 
         # Bottleneck
         b = self.bottleneck(self.pool(e4))
+        b2 = self.bottleneck2(b)
 
         # Decoder
-        d4 = self.upconv4(b)
+        d4 = self.upconv4(b2)
         d4 = torch.cat((e4, d4), dim=1)
         d4 = self.decoder4(d4)
 
