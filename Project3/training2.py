@@ -57,7 +57,7 @@ class UNet2(nn.Module):
         e3 = self.encoder3(self.pool(e2))
         e3 = self.sa3(e3)  # Apply self-attention
         e4 = self.encoder4(self.pool(e3))
-        e4 = self.sa4(e4)  # Apply self-attention
+        #e4 = self.sa4(e4)  # Apply self-attention
 
         # Bottleneck
         b = self.bottleneck1(self.pool(e4))
@@ -181,10 +181,10 @@ class UNet(nn.Module):
         def conv_block(in_ch, out_ch):
             return nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
-                nn.BatchNorm2D(out_ch,)
+                nn.BatchNorm2D(out_ch),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
-                nn.BatchNorm2d(out_ch),
+                nn.BatchNorm2D(out_ch),
                 nn.ReLU(inplace=True)
             )
 
