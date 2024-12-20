@@ -6,6 +6,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms.functional import resize
 import itertools
+from tqdm import tqdm
 
 class UNet2(nn.Module):
     def __init__(self, c_in=1, c_out=1):
@@ -287,7 +288,7 @@ if __name__ == "__main__":
 
     model.to(device)
     
-    for epoch in range(20):
+    for epoch in tqdm(range(20)):
         model.train()
         epoch_loss = 0.0
         for images, labels, _ in train_loader:
